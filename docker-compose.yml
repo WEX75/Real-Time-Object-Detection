@@ -5,9 +5,12 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - model-cache:/root/.cache
     environment:
       PYTHONUNBUFFERED: "1"
       DATABASE_PATH: /app/events.sqlite3
+      VIGILO_DETECTOR: openvocab
+      VIGILO_CONF: "0.25"
     restart: unless-stopped
 
   frontend:
@@ -22,3 +25,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  model-cache:

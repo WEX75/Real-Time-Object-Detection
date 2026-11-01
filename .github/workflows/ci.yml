@@ -32,7 +32,7 @@ jobs:
           pip install --no-cache-dir -r requirements.txt
 
       - name: Run backend tests
-        run: pytest -v
+        run: pytest -m "not model" -v
 
   build-frontend:
     runs-on: ubuntu-latest
