@@ -1,41 +1,70 @@
-export default function ControlPanel({ active, onStart, onStop, status }) {
+import React, { useState } from 'react';
+import { useStore } from '../store';
+
+export default function ControlPanel() {
+  // Extragem zonele ca să le afișăm în meniu, și funcția de adăugare reguli
+  const zoneDesenate = useStore((state) => state.zoneDesenate);
+  const adaugaRegula = useStore((state) => state.adaugaRegula);
+
+  const [obiect, setObiect] = useState('');
+  const [zonaSelectata, setZonaSelectata] = useState('');
+
+  const handleSalveazaRegula = () => {
+    if (!obiect) {
+      alert("Te rog să scrii un obiect (ex: cană, persoană)!");
+      return;
+    }
+    if (!zonaSelectata) {
+      alert("Te rog să selectezi o zonă!");
+      return;
+    }
+
+    // Împachetăm regula și o trimitem în seif
+    adaugaRegula({ id: Date.now(), obiect: obiect, zonaId: zonaSelectata });
+    
+    alert(`Regula pentru "${obiect}" a fost creată cu succes!`);
+    setObiect('');
+    setZonaSelectata('');
+  };
+
   return (
-    <section style={styles.panel}>
-      <div>
-        <strong>Camera controls</strong>
-        <div style={styles.status}>{status}</div>
+    <div style={{ padding: '20px', border: '2px solid #ccc', borderRadius: '8px', minWidth: '300px', backgroundColor: 'white' }}>
+      <h2 style={{ marginTop: 0 }}>Editor de Reguli</h2>
+      
+      <div style={{ marginBottom: '15px' }}>
+        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Ce obiect urmărim?</label>
+        <input 
+          type="text" 
+          value={obiect}
+          onChange={(e) => setObiect(e.target.value)}
+          placeholder="ex: cană, rucsac, persoană" 
+          style={{ width: '100%', padding: '8px', boxSizing: 'border-box', border: '1px solid #aaa', borderRadius: '4px' }}
+        />
       </div>
-      {!active ? (
-        <button onClick={onStart} style={styles.button}>
-          Start detection
-        </button>
-      ) : (
-        <button onClick={onStop} style={{ ...styles.button, ...styles.stop }}>
-          Stop detection
-        </button>
-      )}
-    </section>
+
+      <div style={{ marginBottom: '15px' }}>
+        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>În ce zonă?</label>
+        <select 
+          value={zonaSelectata} 
+          onChange={(e) => setZonaSelectata(e.target.value)}
+          style={{ width: '100%', padding: '8px', boxSizing: 'border-box', border: '1px solid #aaa', borderRadius: '4px' }}
+        >
+          <option value="">-- Alege o zonă --</option>
+          {/* Aici populăm meniul automat cu zonele desenate pe imagine */}
+          {zoneDesenate.map((zona) => (
+            <option key={zona.id} value={zona.id}>
+              {zona.nume}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <button 
+        onClick={handleSalveazaRegula}
+        style={{ width: '100%', padding: '10px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+      >
+        Creează Regula
+      </button>
+    </div>
   );
 }
-
-const styles = {
-  panel: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    padding: 18,
-    background: "#151c2c",
-    borderRadius: 12,
-  },
-  status: { color: "#9aa8bf", marginTop: 5, fontSize: 14 },
-  button: {
-    border: 0,
-    borderRadius: 8,
-    padding: "10px 15px",
-    color: "white",
-    background: "#4f7cff",
-    cursor: "pointer",
-  },
-  stop: { background: "#d94b5b" },
-};

@@ -1,120 +1,133 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import React, { useState } from 'react';
+import { Stage, Layer, Rect } from 'react-konva';
+import { useStore } from '../store';
 
-const VisionViewport = forwardRef(function VisionViewport(
-  { onDetections, onStatus },
-  ref,
-) {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const socketRef = useRef(null);
-  const streamRef = useRef(null);
-  const animationRef = useRef(null);
-  const lastFrameRef = useRef(0);
-  const [imageUrl, setImageUrl] = useState("");
-  const [message, setMessage] = useState("");
+export default function VisionViewport() {
+  const latime = 640;
+  const inaltime = 480;
 
-  function stop() {
-    cancelAnimationFrame(animationRef.current);
-    socketRef.current?.close();
-    socketRef.current = null;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-    onStatus("Stopped");
-  }
+  const adaugaZona = useStore((state) => state.adaugaZona);
+  
+  // Starea pentru desenul curent
+  const [deseneaza, setDeseneaza] = useState(false);
+  const [dreptunghi, setDreptunghi] = useState(null); // Va stoca {x, y, width, height}
+  const [numeZona, setNumeZona] = useState('');
 
-  async function start() {
-    try {
-      setMessage("");
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      streamRef.current = stream;
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
+  // 1. Când apeși pe mouse (începi să desenezi)
+  const handleMouseDown = (e) => {
+    // Dacă avem deja un dreptunghi desenat, nu lăsăm utilizatorul să mai facă altul
+    // până nu îl salvează sau îl șterge.
+    if (dreptunghi !== null) return; 
 
-      const scheme = window.location.protocol === "https:" ? "wss" : "ws";
-      const socket = new WebSocket(`${scheme}://${window.location.host}/ws/detect`);
-      socket.binaryType = "blob";
-      socketRef.current = socket;
-      socket.onopen = () => {
-        onStatus("Connected");
-        sendFrames();
-      };
-      socket.onmessage = (event) => {
-        if (typeof event.data === "string") {
-          const payload = JSON.parse(event.data);
-          if (payload.type === "telemetry") onDetections(payload.detections);
-          if (payload.type === "error") setMessage(payload.message);
-          return;
-        }
-        const nextUrl = URL.createObjectURL(event.data);
-        setImageUrl((previous) => {
-          if (previous) URL.revokeObjectURL(previous);
-          return nextUrl;
-        });
-      };
-      socket.onerror = () => setMessage("WebSocket connection failed.");
-      socket.onclose = () => onStatus("Disconnected");
-      onStatus("Connecting");
-    } catch (error) {
-      stop();
-      setMessage(error.message || "Could not access the camera.");
-      onStatus("Camera unavailable");
+    setDeseneaza(true);
+    const poz = e.target.getStage().getPointerPosition();
+    // Inițializăm un dreptunghi cu lățime și înălțime zero în punctul de click
+    setDreptunghi({ x: poz.x, y: poz.y, width: 0, height: 0 });
+  };
+
+  // 2. Când miști mouse-ul (tragi de margini)
+  const handleMouseMove = (e) => {
+    if (!deseneaza) return;
+    
+    const poz = e.target.getStage().getPointerPosition();
+    
+    setDreptunghi((dreptVechi) => ({
+      ...dreptVechi,
+      // Calculăm noua lățime și înălțime pe baza poziției actuale a mouse-ului
+      width: poz.x - dreptVechi.x,
+      height: poz.y - dreptVechi.y,
+    }));
+  };
+
+  // 3. Când eliberezi mouse-ul (ai terminat forma)
+  const handleMouseUp = () => {
+    setDeseneaza(false);
+  };
+
+  const stergeDesen = () => {
+    setDreptunghi(null);
+  };
+
+  const handleSalveazaZona = () => {
+    if (!dreptunghi || dreptunghi.width === 0 || dreptunghi.height === 0) {
+      alert("Desenează un dreptunghi (click și trage pe imagine)!");
+      return;
     }
-  }
+    if (numeZona.trim() === '') {
+      alert("Introdu un nume pentru zonă!");
+      return;
+    }
 
-  function sendFrames(timestamp = 0) {
-    animationRef.current = requestAnimationFrame(sendFrames);
-    if (timestamp - lastFrameRef.current < 100) return;
-    const video = videoRef.current;
-    const socket = socketRef.current;
-    const canvas = canvasRef.current;
-    if (!video?.videoWidth || socket?.readyState !== WebSocket.OPEN) return;
+    // Normalizăm coordonatele în caz că a tras de la dreapta la stânga (lățime negativă)
+    const coordonateFinale = {
+      x: dreptunghi.width < 0 ? dreptunghi.x + dreptunghi.width : dreptunghi.x,
+      y: dreptunghi.height < 0 ? dreptunghi.y + dreptunghi.height : dreptunghi.y,
+      width: Math.abs(dreptunghi.width),
+      height: Math.abs(dreptunghi.height)
+    };
 
-    lastFrameRef.current = timestamp;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext("2d").drawImage(video, 0, 0);
-    canvas.toBlob((blob) => {
-      if (blob && socket.readyState === WebSocket.OPEN) socket.send(blob);
-    }, "image/jpeg", 0.8);
-  }
+    adaugaZona({
+      id: Date.now(),
+      nume: numeZona,
+      coordonate: coordonateFinale
+    });
 
-  useImperativeHandle(ref, () => ({ start, stop }));
+    setDreptunghi(null);
+    setNumeZona('');
+    alert(`Zona "${numeZona}" a fost salvată!`);
+  };
 
   return (
-    <section style={styles.panel}>
-      <video ref={videoRef} muted playsInline style={styles.hidden} />
-      <canvas ref={canvasRef} style={styles.hidden} />
-      {imageUrl ? (
-        <img src={imageUrl} alt="Live object detection" style={styles.image} />
-      ) : (
-        <div style={styles.placeholder}>Camera feed will appear here</div>
-      )}
-      {message && <p style={styles.error}>{message}</p>}
-    </section>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+      
+      <div style={{ display: 'flex', gap: '10px' }}>
+        <input 
+          type="text" 
+          placeholder="Nume zonă (ex: Bar)" 
+          value={numeZona}
+          onChange={(e) => setNumeZona(e.target.value)}
+          style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+        />
+        <button onClick={handleSalveazaZona} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: '#22c55e', color: 'white', border: 'none', borderRadius: '4px' }}>
+          Salvează Zona
+        </button>
+        <button onClick={stergeDesen} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px' }}>
+          Șterge
+        </button>
+      </div>
+
+      <div style={{ position: 'relative', width: latime, height: inaltime, border: '2px solid #ccc' }}>
+        <img 
+          src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=640&q=80" 
+          alt="Camera Test" 
+          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }}
+        />
+        
+        <div style={{ position: 'absolute', top: 0, left: 0, zIndex: 10, cursor: 'crosshair' }}>
+          <Stage 
+            width={latime} 
+            height={inaltime} 
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+          >
+            <Layer>
+              {dreptunghi && (
+                <Rect 
+                  x={dreptunghi.x} 
+                  y={dreptunghi.y} 
+                  width={dreptunghi.width} 
+                  height={dreptunghi.height} 
+                  fill="rgba(0, 255, 0, 0.3)" 
+                  stroke="#00ff00" 
+                  strokeWidth={2} 
+                />
+              )}
+            </Layer>
+          </Stage>
+        </div>
+      </div>
+      
+    </div>
   );
-});
-
-export default VisionViewport;
-
-const styles = {
-  panel: { padding: 12, background: "#151c2c", borderRadius: 12 },
-  hidden: { display: "none" },
-  image: {
-    display: "block",
-    width: "100%",
-    maxHeight: "62vh",
-    objectFit: "contain",
-    background: "#080b12",
-    borderRadius: 8,
-  },
-  placeholder: {
-    display: "grid",
-    placeItems: "center",
-    minHeight: 320,
-    color: "#9aa8bf",
-    background: "#080b12",
-    borderRadius: 8,
-  },
-  error: { color: "#ff8792", marginBottom: 0 },
-};
+}
