@@ -12,7 +12,18 @@ shops (empty shelf, queue at the till). Team project for Fundamentele
 Ingineriei Software, FMI UniBuc.
 
 Stack: React 18 + Vite, FastAPI, Ultralytics (YOLO-World, YOLO11n fallback),
-binary WebSockets, SQLite.
+binary WebSockets, SQLite. Pure software: it runs on any laptop with a webcam,
+no extra hardware.
+
+![Vigilo dashboard: two zones with live detections, rules and events](docs/images/vigilo-dashboard.png)
+
+*Real run of this repository with the `yolo` detector on a looping video of
+the Ultralytics sample image `bus.jpg`. The zone "statie" was drawn with the
+mouse; its `count_threshold` rule (more than 2 people for 2 s) fired with 3
+people inside.*
+
+Working on the code with the team: see [CONTRIBUTING.md](CONTRIBUTING.md)
+(git branches and pull requests, in Romanian).
 
 ## How it works
 
@@ -36,15 +47,30 @@ Browser (React)                          Backend (FastAPI, Python 3.10)
 
 ## Requirements
 
-- Windows 10/11 with Docker Desktop (needs WSL 2), or Python 3.10 and Node.js 20.
+- Docker with Docker Compose (Docker Desktop on Windows and macOS, Docker
+  Engine on Linux), or Python 3.10 to 3.12 and Node.js 20 or newer.
+- `git`, to clone the repository and to install the `clip` package.
 - A webcam, or a video file. The browser asks for camera access, which works
   only on `localhost` or HTTPS.
 
+## Get the code
+
+```bash
+git clone https://github.com/WEX75/Real-Time-Object-Detection.git
+cd Real-Time-Object-Detection
+```
+
 ## Run with Docker
 
-```powershell
+The same command on Windows (PowerShell), Linux and macOS:
+
+```bash
 docker compose up --build
 ```
+
+On Linux, if Docker says permission denied, run it with `sudo` or add your
+user to the `docker` group (`sudo usermod -aG docker $USER`, then log out and
+back in).
 
 Open <http://localhost:5173>. The backend is at <http://localhost:8000/api/health>.
 
@@ -54,7 +80,43 @@ named volume caches them across rebuilds. Set `VIGILO_DETECTOR=yolo` in
 
 ## Run without Docker
 
-Two PowerShell windows.
+Two terminals: one for the backend, one for the frontend. The backend runs on
+<http://localhost:8000>, the frontend on <http://localhost:5173>.
+
+### Linux and macOS
+
+Backend:
+
+```bash
+cd backend
+python3 -m venv .venv            # use python3.10, python3.11 or python3.12 if python3 is newer
+source .venv/bin/activate
+python -m pip install --upgrade pip
+# Linux: CPU-only PyTorch (smaller download). On macOS skip this line.
+python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+On Ubuntu or Debian, install the prerequisites first:
+
+```bash
+sudo apt update
+sudo apt install -y git python3-venv nodejs npm libgl1 libglib2.0-0
+```
+
+If `node --version` prints a version older than 20, install Node.js 20 from
+<https://nodejs.org> instead. On macOS: `brew install python@3.12 node git`.
+
+### Windows (PowerShell)
 
 Backend:
 
@@ -117,11 +179,13 @@ the camera frame rate.
 
 ## Tests
 
-```powershell
+With the backend virtual environment active (any OS):
+
+```bash
 cd backend
 python -m pytest -m "not model" -v     # what CI runs, no model download
 python -m pytest -m model -s           # loads the real detectors and prints timings
-cd ..\frontend
+cd ../frontend
 npm run build
 ```
 
