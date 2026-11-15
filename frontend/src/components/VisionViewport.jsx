@@ -1,45 +1,35 @@
 import React, { useState } from 'react';
-import { Stage, Layer, Rect } from 'react-konva';
+import { Stage, Layer, Rect, Label, Tag, Text } from 'react-konva';
 import { useStore } from '../store';
 
 export default function VisionViewport() {
   const latime = 640;
   const inaltime = 480;
 
+  const zoneDesenate = useStore((state) => state.zoneDesenate);
   const adaugaZona = useStore((state) => state.adaugaZona);
-  
-  // Starea pentru desenul curent
+
   const [deseneaza, setDeseneaza] = useState(false);
-  const [dreptunghi, setDreptunghi] = useState(null); // Va stoca {x, y, width, height}
+  const [dreptunghi, setDreptunghi] = useState(null);
   const [numeZona, setNumeZona] = useState('');
 
-  // 1. Când apeși pe mouse (începi să desenezi)
   const handleMouseDown = (e) => {
-    // Dacă avem deja un dreptunghi desenat, nu lăsăm utilizatorul să mai facă altul
-    // până nu îl salvează sau îl șterge.
-    if (dreptunghi !== null) return; 
-
+    if (dreptunghi !== null) return;
     setDeseneaza(true);
     const poz = e.target.getStage().getPointerPosition();
-    // Inițializăm un dreptunghi cu lățime și înălțime zero în punctul de click
     setDreptunghi({ x: poz.x, y: poz.y, width: 0, height: 0 });
   };
 
-  // 2. Când miști mouse-ul (tragi de margini)
   const handleMouseMove = (e) => {
     if (!deseneaza) return;
-    
     const poz = e.target.getStage().getPointerPosition();
-    
     setDreptunghi((dreptVechi) => ({
       ...dreptVechi,
-      // Calculăm noua lățime și înălțime pe baza poziției actuale a mouse-ului
       width: poz.x - dreptVechi.x,
       height: poz.y - dreptVechi.y,
     }));
   };
 
-  // 3. Când eliberezi mouse-ul (ai terminat forma)
   const handleMouseUp = () => {
     setDeseneaza(false);
   };
@@ -58,7 +48,6 @@ export default function VisionViewport() {
       return;
     }
 
-    // Normalizăm coordonatele în caz că a tras de la dreapta la stânga (lățime negativă)
     const coordonateFinale = {
       x: dreptunghi.width < 0 ? dreptunghi.x + dreptunghi.width : dreptunghi.x,
       y: dreptunghi.height < 0 ? dreptunghi.y + dreptunghi.height : dreptunghi.y,
@@ -74,36 +63,45 @@ export default function VisionViewport() {
 
     setDreptunghi(null);
     setNumeZona('');
-    alert(`Zona "${numeZona}" a fost salvată!`);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-xl flex flex-col items-center gap-4">
       
-      <div style={{ display: 'flex', gap: '10px' }}>
+      {/* Bara de control pentru zone */}
+      <div className="w-full flex flex-wrap gap-2 justify-between items-center">
         <input 
           type="text" 
-          placeholder="Nume zonă (ex: Bar)" 
+          placeholder="Nume zonă (ex: Masa 3)" 
           value={numeZona}
           onChange={(e) => setNumeZona(e.target.value)}
-          style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+          className="flex-1 min-w-[200px] bg-slate-900 text-slate-100 placeholder-slate-500 px-3 py-2 rounded-lg border border-slate-600 focus:outline-none focus:border-emerald-400 text-sm"
         />
-        <button onClick={handleSalveazaZona} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: '#22c55e', color: 'white', border: 'none', borderRadius: '4px' }}>
-          Salvează Zona
-        </button>
-        <button onClick={stergeDesen} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px' }}>
-          Șterge
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={handleSalveazaZona} 
+            className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold px-4 py-2 rounded-lg text-sm transition cursor-pointer"
+          >
+            Salvează Zona
+          </button>
+          <button 
+            onClick={stergeDesen} 
+            className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 font-medium px-3 py-2 rounded-lg text-sm transition cursor-pointer"
+          >
+            Anulează
+          </button>
+        </div>
       </div>
 
-      <div style={{ position: 'relative', width: latime, height: inaltime, border: '2px solid #ccc' }}>
+      {/* Containerul video + canvas */}
+      <div className="relative rounded-lg overflow-hidden border border-slate-600 shadow-inner" style={{ width: latime, height: inaltime }}>
         <img 
           src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=640&q=80" 
           alt="Camera Test" 
-          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }}
+          className="absolute top-0 left-0 w-full h-full object-cover z-0 select-none"
         />
         
-        <div style={{ position: 'absolute', top: 0, left: 0, zIndex: 10, cursor: 'crosshair' }}>
+        <div className="absolute top-0 left-0 z-10 cursor-crosshair">
           <Stage 
             width={latime} 
             height={inaltime} 
@@ -112,14 +110,40 @@ export default function VisionViewport() {
             onMouseUp={handleMouseUp}
           >
             <Layer>
+              {/* Zonele deja salvate (afișate permanent cu albastru + etichetă clară) */}
+              {zoneDesenate.map((zona) => (
+                <React.Fragment key={zona.id}>
+                  <Rect
+                    x={zona.coordonate.x}
+                    y={zona.coordonate.y}
+                    width={zona.coordonate.width}
+                    height={zona.coordonate.height}
+                    fill="rgba(56, 189, 248, 0.2)"
+                    stroke="#38bdf8"
+                    strokeWidth={2}
+                  />
+                  <Label x={zona.coordonate.x} y={zona.coordonate.y}>
+                    <Tag fill="#0f172a" cornerRadius={4} opacity={0.85} />
+                    <Text
+                      text={zona.nume}
+                      fill="#38bdf8"
+                      fontSize={13}
+                      fontStyle="bold"
+                      padding={5}
+                    />
+                  </Label>
+                </React.Fragment>
+              ))}
+
+              {/* Dreptunghiul pe care îl desenezi în momentul de față (verde) */}
               {dreptunghi && (
                 <Rect 
                   x={dreptunghi.x} 
                   y={dreptunghi.y} 
                   width={dreptunghi.width} 
                   height={dreptunghi.height} 
-                  fill="rgba(0, 255, 0, 0.3)" 
-                  stroke="#00ff00" 
+                  fill="rgba(16, 185, 129, 0.3)" 
+                  stroke="#10b981" 
                   strokeWidth={2} 
                 />
               )}
@@ -127,7 +151,10 @@ export default function VisionViewport() {
           </Stage>
         </div>
       </div>
-      
+
+      <p className="text-xs text-slate-400 self-start">
+        * Click și trage pe imagine pentru a delimita o zonă nouă. Zonele salvate rămân afișate cu albastru.
+      </p>
     </div>
   );
 }
