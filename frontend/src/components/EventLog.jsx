@@ -4,6 +4,7 @@ import { useStore } from '../store';
 export default function EventLog() {
   const reguliActive = useStore((state) => state.reguliActive);
   const zoneDesenate = useStore((state) => state.zoneDesenate);
+  const stergeRegula = useStore((state) => state.stergeRegula);
 
   const gasesteNumeZona = (idZona) => {
     const zona = zoneDesenate.find(z => z.id.toString() === idZona.toString());
@@ -31,15 +32,24 @@ export default function EventLog() {
           {reguliActive.map((regula) => (
             <li 
               key={regula.id} 
-              className="bg-slate-900/80 p-3 rounded-lg border border-slate-700/80 text-sm flex items-start gap-2.5"
+              className="bg-slate-900/80 p-3 rounded-lg border border-slate-700/80 text-sm flex items-center justify-between gap-2"
             >
-              <span className="text-emerald-400 mt-0.5">●</span>
-              <div>
-                <span className="text-slate-300">Monitorizare </span>
-                <strong className="text-emerald-400 font-semibold">{regula.obiect}</strong>
-                <span className="text-slate-300"> în zona </span>
-                <strong className="text-sky-400 font-semibold">{gasesteNumeZona(regula.zonaId)}</strong>
+              <div className="flex items-start gap-2.5">
+                <span className="text-emerald-400 mt-0.5">●</span>
+                <div>
+                  <span className="text-slate-300">Monitorizare </span>
+                  <strong className="text-emerald-400 font-semibold">{regula.obiect}</strong>
+                  <span className="text-slate-300"> în zona </span>
+                  <strong className="text-sky-400 font-semibold">{gasesteNumeZona(regula.zonaId)}</strong>
+                </div>
               </div>
+              <button
+                onClick={() => stergeRegula(regula.id)}
+                title="Șterge regula"
+                className="text-slate-500 hover:text-rose-400 px-1.5 py-0.5 rounded transition cursor-pointer font-bold"
+              >
+                ✕
+              </button>
             </li>
           ))}
         </ul>

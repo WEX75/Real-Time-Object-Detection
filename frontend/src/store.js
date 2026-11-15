@@ -8,10 +8,19 @@ export const useStore = create((set) => ({
     zoneDesenate: [...state.zoneDesenate, nouaZona]
   })),
 
-  // Funcția nouă care salvează regula creată
+  stergeZona: (idZona) => set((state) => ({
+    zoneDesenate: state.zoneDesenate.filter((z) => z.id !== idZona),
+    // Ștergem automat și regulile asociate acestei zone
+    reguliActive: state.reguliActive.filter((r) => r.zonaId.toString() !== idZona.toString())
+  })),
+
   adaugaRegula: (nouaRegula) => set((state) => ({
     reguliActive: [...state.reguliActive, nouaRegula]
   })),
 
-  stergeToateZonele: () => set({ zoneDesenate: [] })
+  stergeRegula: (idRegula) => set((state) => ({
+    reguliActive: state.reguliActive.filter((r) => r.id !== idRegula)
+  })),
+
+  stergeToateZonele: () => set({ zoneDesenate: [], reguliActive: [] })
 }));
