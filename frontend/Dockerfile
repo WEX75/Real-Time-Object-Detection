@@ -1,12 +1,16 @@
-FROM node:20-alpine
-
+# Etapa 1: Construirea aplicației React (Build)
+FROM node:20-alpine AS build
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+COPY package*.json ./
+RUN npm install --legacy-peer-deps
 
 COPY . .
+RUN npm run build
 
-EXPOSE 5173
+# Etapa 2: Servirea fișierelor statice cu Nginx
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
 
-CMD ["npm", "run", "dev"]
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
